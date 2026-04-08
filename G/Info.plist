@@ -30,5 +30,22 @@
     <array>
         <string>AskGIntent</string>
     </array>
+
+    <!-- URL Scheme for Live Activity deep link (push-to-talk from Lock Screen) -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>g-assistant</string>
+            </array>
+            <key>CFBundleURLName</key>
+            <string>com.gehrig.g</string>
+        </dict>
+    </array>
+
+    <!-- Support Live Activities -->
+    <key>NSSupportsLiveActivities</key>
+    <true/>
 </dict>
 </plist>

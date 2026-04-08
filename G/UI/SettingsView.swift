@@ -58,6 +58,24 @@ struct SettingsView: View {
                     }
                 }
 
+                // Lock Screen
+                Section {
+                    Toggle("Lock Screen widget", isOn: .init(
+                        get: { GLiveActivityManager.shared.isActive },
+                        set: { enabled in
+                            if enabled {
+                                GLiveActivityManager.shared.start()
+                            } else {
+                                GLiveActivityManager.shared.stop()
+                            }
+                        }
+                    ))
+                } header: {
+                    Text("Lock Screen")
+                } footer: {
+                    Text("Shows G on your Lock Screen with a push-to-talk button. Tap the mic to open G and start talking.")
+                }
+
                 // Permissions
                 Section("Permissions") {
                     PermissionRow(

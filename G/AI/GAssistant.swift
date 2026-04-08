@@ -4,7 +4,7 @@ import Combine
 
 /// The main coordinator that ties everything together.
 /// Owns the brain, voice engine, and conversation state.
-/// This is what the UI binds to.
+/// Updates the Lock Screen Live Activity as state changes.
 @MainActor
 class GAssistant: ObservableObject {
     // MARK: - Published State
@@ -17,6 +17,7 @@ class GAssistant: ObservableObject {
 
     let voiceEngine = VoiceEngine()
     private let brain = GBrain()
+    private let liveActivity = GLiveActivityManager.shared
 
     init() {
         // Greeting
@@ -28,6 +29,7 @@ class GAssistant: ObservableObject {
         // Wire up voice input
         voiceEngine.onSpeechResult = { [weak self] text in
             Task { @MainActor in
+                self?.liveActivity.update(status: .thinking)
                 await self?.send(text)
             }
         }
@@ -59,6 +61,9 @@ class GAssistant: ObservableObject {
         isProcessing = true
         currentAction = "Thinking..."
 
+        // Update Live Activity
+        liveActivity.update(status: .thinking)
+
         // Haptic feedback
         if Settings.shared.hapticFeedbackEnabled {
             let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -71,6 +76,10 @@ class GAssistant: ObservableObject {
             let assistantMessage = ConversationMessage(role: .assistant, text: response)
             messages.append(assistantMessage)
 
+            // Update Live Activity with response
+            let preview = String(response.prefix(100))
+            liveActivity.update(status: .speaking, lastResponse: preview)
+
             // Speak the response
             voiceEngine.speak(response)
 
@@ -80,20 +89,23 @@ class GAssistant: ObservableObject {
                 text: "Something went wrong — \(error.localizedDescription)"
             )
             messages.append(errorMessage)
+            liveActivity.update(status: .ready, lastResponse: "Error occurred")
         }
 
         isProcessing = false
         currentAction = nil
 
-        // Resume passive listening after response is done
+        // Resume passive listening and update Live Activity
         if Settings.shared.wakeWordEnabled && !voiceEngine.isListening {
             Task { @MainActor in
-                // Small delay to let TTS finish
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 if Settings.shared.wakeWordEnabled && self.voiceEngine.listeningMode == .off {
                     self.voiceEngine.startPassiveListening()
                 }
+                self.liveActivity.update(status: .ready)
             }
+        } else {
+            liveActivity.update(status: .ready)
         }
     }
 
@@ -101,5 +113,6 @@ class GAssistant: ObservableObject {
     func clearConversation() async {
         messages = [ConversationMessage(role: .assistant, text: "Fresh start. What do you need?")]
         await brain.clearHistory()
+        liveActivity.update(status: .ready, lastResponse: nil)
     }
 }
