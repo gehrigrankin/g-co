@@ -44,9 +44,18 @@ struct SettingsView: View {
                 }
 
                 // Voice
-                Section("Voice") {
+                Section {
+                    Toggle("\"Hey G\" wake word", isOn: $settings.wakeWordEnabled)
                     Toggle("Speak responses aloud", isOn: $settings.voiceResponseEnabled)
                     Toggle("Haptic feedback", isOn: $settings.hapticFeedbackEnabled)
+                } header: {
+                    Text("Voice")
+                } footer: {
+                    if settings.wakeWordEnabled {
+                        Text("G is always listening while the app is open. Say \"Hey G\" or \"G,\" followed by your request.")
+                    } else {
+                        Text("Tap the mic button to talk to G.")
+                    }
                 }
 
                 // Permissions

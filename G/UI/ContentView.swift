@@ -12,10 +12,18 @@ struct ContentView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         HStack(spacing: 8) {
-                            StatusDot(isActive: !Settings.shared.claudeAPIKey.isEmpty)
+                            StatusDot(
+                                isActive: !Settings.shared.claudeAPIKey.isEmpty,
+                                isListening: assistant.voiceEngine.isPassivelyListening
+                            )
                             Text("G")
                                 .font(.title2.bold())
                                 .foregroundColor(.white)
+                            if assistant.voiceEngine.isPassivelyListening {
+                                Text("listening")
+                                    .font(.caption2)
+                                    .foregroundColor(.gAccentDim)
+                            }
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
@@ -48,10 +56,23 @@ struct ContentView: View {
 
 struct StatusDot: View {
     let isActive: Bool
+    var isListening: Bool = false
 
     var body: some View {
         Circle()
-            .fill(isActive ? Color.gStatusActive : Color.gStatusInactive)
+            .fill(dotColor)
             .frame(width: 8, height: 8)
+            .opacity(isListening ? 0.6 : 1.0)
+            .animation(
+                isListening
+                    ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+                    : .default,
+                value: isListening
+            )
+    }
+
+    private var dotColor: Color {
+        if isListening { return .gAccent }
+        return isActive ? .gStatusActive : .gStatusInactive
     }
 }

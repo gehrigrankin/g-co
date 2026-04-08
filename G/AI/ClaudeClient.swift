@@ -98,10 +98,15 @@ class Settings: ObservableObject {
         didSet { defaults.set(hapticFeedbackEnabled, forKey: "haptic_feedback") }
     }
 
+    @Published var wakeWordEnabled: Bool {
+        didSet { defaults.set(wakeWordEnabled, forKey: "wake_word") }
+    }
+
     private init() {
         self.claudeAPIKey = defaults.string(forKey: "claude_api_key") ?? ""
         self.voiceResponseEnabled = defaults.bool(forKey: "voice_response")
         self.hapticFeedbackEnabled = defaults.object(forKey: "haptic_feedback") as? Bool ?? true
+        self.wakeWordEnabled = defaults.object(forKey: "wake_word") as? Bool ?? true
 
         // Check if voice_response was never set (default to true)
         if defaults.object(forKey: "voice_response") == nil {

@@ -32,8 +32,16 @@ class GAssistant: ObservableObject {
             }
         }
 
-        // Request speech authorization
+        // Request speech authorization, then start passive listening
         voiceEngine.requestAuthorization()
+
+        // Start wake word listening after a brief delay for auth to resolve
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if Settings.shared.wakeWordEnabled && self.voiceEngine.isAuthorized {
+                self.voiceEngine.startPassiveListening()
+            }
+        }
     }
 
     // MARK: - Send Message
@@ -76,6 +84,17 @@ class GAssistant: ObservableObject {
 
         isProcessing = false
         currentAction = nil
+
+        // Resume passive listening after response is done
+        if Settings.shared.wakeWordEnabled && !voiceEngine.isListening {
+            Task { @MainActor in
+                // Small delay to let TTS finish
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                if Settings.shared.wakeWordEnabled && self.voiceEngine.listeningMode == .off {
+                    self.voiceEngine.startPassiveListening()
+                }
+            }
+        }
     }
 
     /// Clear conversation history.

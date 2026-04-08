@@ -8,6 +8,9 @@ struct ConversationView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Live transcription banner (shows what G is hearing)
+            TranscriptionBanner()
+
             // Messages
             ScrollViewReader { proxy in
                 ScrollView {
@@ -168,23 +171,95 @@ struct TypingIndicator: View {
 struct VoiceButton: View {
     @EnvironmentObject var assistant: GAssistant
 
+    private var mode: VoiceEngine.ListeningMode {
+        assistant.voiceEngine.listeningMode
+    }
+
     var body: some View {
         Button {
-            if assistant.voiceEngine.isListening {
+            switch mode {
+            case .off, .passive:
+                // Manual tap → start active listening (skip wake word)
+                assistant.voiceEngine.startActiveListening()
+            case .active:
+                // Tap again → stop listening
                 assistant.voiceEngine.stopListening()
-            } else {
-                assistant.voiceEngine.startListening()
+                if Settings.shared.wakeWordEnabled {
+                    // Return to passive after brief pause
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        assistant.voiceEngine.startPassiveListening()
+                    }
+                }
+            case .processing:
+                break
             }
         } label: {
-            Image(systemName: assistant.voiceEngine.isListening ? "mic.fill" : "mic")
-                .font(.title3)
-                .foregroundColor(assistant.voiceEngine.isListening ? .red : .gAccent)
-                .frame(width: 36, height: 36)
-                .background(
+            ZStack {
+                // Passive listening indicator — subtle pulse
+                if mode == .passive {
                     Circle()
-                        .fill(assistant.voiceEngine.isListening ? Color.red.opacity(0.2) : Color.clear)
-                )
+                        .fill(Color.gAccent.opacity(0.08))
+                        .frame(width: 36, height: 36)
+                }
+
+                // Active listening indicator — prominent
+                if mode == .active {
+                    Circle()
+                        .fill(Color.red.opacity(0.2))
+                        .frame(width: 36, height: 36)
+                }
+
+                Image(systemName: micIcon)
+                    .font(.title3)
+                    .foregroundColor(micColor)
+            }
+            .frame(width: 36, height: 36)
         }
-        .animation(.easeInOut(duration: 0.2), value: assistant.voiceEngine.isListening)
+        .animation(.easeInOut(duration: 0.2), value: mode)
+    }
+
+    private var micIcon: String {
+        switch mode {
+        case .off: return "mic"
+        case .passive: return "mic.badge.xmark"  // listening but passive
+        case .active: return "mic.fill"
+        case .processing: return "mic.slash"
+        }
+    }
+
+    private var micColor: Color {
+        switch mode {
+        case .off: return .gAccent
+        case .passive: return .gAccentDim
+        case .active: return .red
+        case .processing: return .gTextDim
+        }
+    }
+}
+
+// MARK: - Live Transcription Banner
+
+struct TranscriptionBanner: View {
+    @EnvironmentObject var assistant: GAssistant
+
+    var body: some View {
+        if assistant.voiceEngine.listeningMode == .active &&
+           !assistant.voiceEngine.currentTranscription.isEmpty {
+            HStack {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 8)
+                Text(assistant.voiceEngine.currentTranscription)
+                    .font(.subheadline)
+                    .foregroundColor(.gText)
+                    .lineLimit(2)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.gSurface)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 }
