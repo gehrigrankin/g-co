@@ -1,0 +1,22 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		// This is a placeholder project.pbxproj.
+		// Open this project in Xcode to let it regenerate the full build graph,
+		// or create a new project in Xcode and drag the G/ folder into it.
+		//
+		// To build from scratch in Xcode:
+		// 1. File → New → Project → iOS App
+		// 2. Product Name: G
+		// 3. Organization: com.gehrig
+		// 4. Interface: SwiftUI
+		// 5. Language: Swift
+		// 6. Drag all files from G/ into the project navigator
+		// 7. Add the Swift Package dependencies listed in Package.swift
+	};
+	rootObject = "";
+}
