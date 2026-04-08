@@ -112,6 +112,29 @@ struct SettingsView: View {
                     .foregroundColor(.gAccent)
                 }
 
+                // Memory
+                Section {
+                    NavigationLink {
+                        MemoryView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "brain")
+                                .foregroundColor(.gAccent)
+                                .frame(width: 24)
+                            VStack(alignment: .leading) {
+                                Text("G's Memory")
+                                Text(GMemory.shared.stats)
+                                    .font(.caption)
+                                    .foregroundColor(.gTextDim)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Memory")
+                } footer: {
+                    Text("See what G has learned about you. You can delete any memory.")
+                }
+
                 // About
                 Section("About") {
                     HStack {

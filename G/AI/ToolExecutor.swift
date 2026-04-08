@@ -13,6 +13,16 @@ class ToolExecutor {
     func execute(tool: String, input: [String: Any]) async -> String {
         do {
             switch tool {
+            case "store_memory":
+                // Handled directly in GBrain
+                return "Memory stored."
+
+            case "recall_memory":
+                guard let query = input["query"] as? String else {
+                    return "Error: missing 'query' parameter"
+                }
+                return await recallMemory(query: query)
+
             case "read_messages":
                 let contact = input["contact"] as? String
                 let limit = input["limit"] as? Int ?? 20
@@ -154,5 +164,21 @@ class ToolExecutor {
         Time: \(timeString)
         Battery: \(batteryLevel) (\(batteryState))
         """
+    }
+
+    // MARK: - Memory Recall
+
+    private func recallMemory(query: String) async -> String {
+        let memories = await MainActor.run {
+            GMemory.shared.recall(query: query)
+        }
+
+        if memories.isEmpty {
+            return "No memories matching '\(query)'. I don't know about this yet."
+        }
+
+        return memories.prefix(10).map { memory in
+            "[\(memory.category.rawValue)] \(memory.content) (confidence: \(memory.confidence))"
+        }.joined(separator: "\n")
     }
 }

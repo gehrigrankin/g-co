@@ -4,27 +4,44 @@ import Combine
 
 /// The main coordinator that ties everything together.
 /// Owns the brain, voice engine, and conversation state.
-/// Updates the Lock Screen Live Activity as state changes.
+/// Persists conversations across sessions and updates the Live Activity.
 @MainActor
 class GAssistant: ObservableObject {
     // MARK: - Published State
 
     @Published var messages: [ConversationMessage] = []
     @Published var isProcessing = false
-    @Published var currentAction: String?  // "Checking your calendar..."
+    @Published var currentAction: String?
 
     // MARK: - Components
 
     let voiceEngine = VoiceEngine()
     private let brain = GBrain()
     private let liveActivity = GLiveActivityManager.shared
+    private let conversationStore = ConversationStore.shared
 
     init() {
-        // Greeting
-        messages.append(ConversationMessage(
-            role: .assistant,
-            text: "Hey, I'm G. What do you need?"
-        ))
+        // Restore previous conversation or start fresh
+        let restored = conversationStore.startNewSession()
+        if restored.isEmpty {
+            // First launch or new session — G greets based on what it knows
+            let memory = GMemory.shared
+            let greeting: String
+            if memory.memories.isEmpty {
+                greeting = "Hey, I'm G. I'm your assistant — I'll learn about you as we go. What do you need?"
+            } else {
+                greeting = "Hey Gehrig. What's up?"
+            }
+            let msg = ConversationMessage(role: .assistant, text: greeting)
+            messages.append(msg)
+            conversationStore.addMessage(msg)
+        } else {
+            messages = restored
+            // Welcome back message
+            let wb = ConversationMessage(role: .assistant, text: "I'm back. Where were we?")
+            messages.append(wb)
+            conversationStore.addMessage(wb)
+        }
 
         // Wire up voice input
         voiceEngine.onSpeechResult = { [weak self] text in
@@ -37,7 +54,6 @@ class GAssistant: ObservableObject {
         // Request speech authorization, then start passive listening
         voiceEngine.requestAuthorization()
 
-        // Start wake word listening after a brief delay for auth to resolve
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             if Settings.shared.wakeWordEnabled && self.voiceEngine.isAuthorized {
@@ -48,7 +64,6 @@ class GAssistant: ObservableObject {
 
     // MARK: - Send Message
 
-    /// Process a user request (from text input or voice).
     func send(_ text: String) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -57,14 +72,12 @@ class GAssistant: ObservableObject {
         // Add user message
         let userMessage = ConversationMessage(role: .user, text: trimmed)
         messages.append(userMessage)
+        conversationStore.addMessage(userMessage)
 
         isProcessing = true
         currentAction = "Thinking..."
-
-        // Update Live Activity
         liveActivity.update(status: .thinking)
 
-        // Haptic feedback
         if Settings.shared.hapticFeedbackEnabled {
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
@@ -75,12 +88,11 @@ class GAssistant: ObservableObject {
 
             let assistantMessage = ConversationMessage(role: .assistant, text: response)
             messages.append(assistantMessage)
+            conversationStore.addMessage(assistantMessage)
 
-            // Update Live Activity with response
             let preview = String(response.prefix(100))
             liveActivity.update(status: .speaking, lastResponse: preview)
 
-            // Speak the response
             voiceEngine.speak(response)
 
         } catch {
@@ -89,13 +101,13 @@ class GAssistant: ObservableObject {
                 text: "Something went wrong — \(error.localizedDescription)"
             )
             messages.append(errorMessage)
+            conversationStore.addMessage(errorMessage)
             liveActivity.update(status: .ready, lastResponse: "Error occurred")
         }
 
         isProcessing = false
         currentAction = nil
 
-        // Resume passive listening and update Live Activity
         if Settings.shared.wakeWordEnabled && !voiceEngine.isListening {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -113,6 +125,7 @@ class GAssistant: ObservableObject {
     func clearConversation() async {
         messages = [ConversationMessage(role: .assistant, text: "Fresh start. What do you need?")]
         await brain.clearHistory()
+        conversationStore.clearCurrentSession()
         liveActivity.update(status: .ready, lastResponse: nil)
     }
 }
